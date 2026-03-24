@@ -1,0 +1,615 @@
+openapi: 3.0.2
+info:
+  title: 'FindThePlace'
+  version: '0.0.1'
+servers:
+  - url: http://localhost:8080/api/v1/
+    description: dev server
+
+paths:
+  # ==================== ПОЛЬЗОВАТЕЛИ ====================
+  /users:
+    security:
+      - Token: []
+    get:
+      operationId: Список пользователей
+      description: 'Список всех пользователей (исключая текущего)'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 123
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+          description: ''
+      tags:
+        - Пользователи
+
+  /users/{id}:
+    security:
+      - Token: []
+    get:
+      operationId: Профиль пользователя
+      description: 'Доступно всем авторизованным пользователям.'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: statistic
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithStatistic'
+          description: ''
+      tags:
+        - Пользователи
+
+  /users/me:
+    security:
+      - Token: []
+    get:
+      operationId: Текущий пользователь
+      description: 'Получить информацию о текущем пользователе'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+      tags:
+        - Пользователи
+
+  /users/me/avatar:
+    security:
+      - Token: []
+    put:
+      operationId: Добавление аватара
+      description: 'Добавление аватара текущего пользователя (Base64)'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAvatar'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetAvatarResponse'
+          description: 'Аватар успешно добавлен'
+      tags:
+        - Пользователи
+    delete:
+      operationId: Удаление аватара
+      description: 'Удаление аватара текущего пользователя'
+      responses:
+        '204':
+          description: 'Аватар успешно удален'
+      tags:
+        - Пользователи
+
+  # ==================== ДРУЗЬЯ ====================
+  /users/{id}/friend:
+    security:
+      - Token: []
+    post:
+      operationId: Добавить в друзья
+      description: 'Добавить пользователя в друзья'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithStatistic'
+          description: ''
+      tags:
+        - Друзья
+    delete:
+      security:
+        - Token: []
+      operationId: Удалить из друзей
+      description: 'Удалить пользователя из друзей'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 'Пользователь удален из друзей'
+      tags:
+        - Друзья
+
+  /users/friendslist:
+    security:
+      - Token: []
+    get:
+      operationId: Список друзей
+      description: 'Получить список друзей текущего пользователя'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+          description: ''
+      tags:
+        - Друзья
+
+  # ==================== СТАТИСТИКА ====================
+  /users/{id}/statistic:
+    security:
+      - Token: []
+    get:
+      operationId: Статистика пользователя
+      description: 'Получить статистику пользователя (его маршруты)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatistic'
+          description: ''
+      tags:
+        - Статистика
+
+  /users/me/statistic:
+    security:
+      - Token: []
+    get:
+      operationId: Моя статистика
+      description: 'Получить статистику текущего пользователя'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatistic'
+          description: ''
+      tags:
+        - Статистика
+
+  /users/statistics:
+    security:
+      - Token: []
+    get:
+      operationId: Статистика друзей
+      description: 'Получить статистику всех друзей'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserStatistic'
+          description: ''
+      tags:
+        - Статистика
+
+  # ==================== ЛОКАЦИИ ====================
+  /locations/:
+    security:
+      - Token: []
+    post:
+      operationId: Создать локацию
+      description: 'Создание новой локации (точки на карте). Возвращает ID для использования в маршрутах.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationCreate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationResponse'
+          description: 'Локация успешно создана. ID можно использовать в start_id и finish_id при создании маршрута.'
+      tags:
+        - Локации
+
+  # ==================== МАРШРУТЫ ====================
+  /routes:
+    security:
+      - Token: []
+    get:
+      operationId: Маршруты пользователя
+      description: 'Список маршрутов текущего пользователя'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Route'
+          description: ''
+      tags:
+        - Маршруты
+    post:
+      security:
+        - Token: []
+      operationId: Создать маршрут
+      description: 'Создание нового маршрута. Используйте start_id и finish_id, полученные при создании локаций.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteCreate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+          description: ''
+      tags:
+        - Маршруты
+
+  /routes/{id}:
+    security:
+      - Token: []
+    get:
+      operationId: Детали маршрута
+      description: 'Получить информацию о маршруте'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+          description: ''
+      tags:
+        - Маршруты
+    delete:
+      security:
+        - Token: []
+      operationId: Удалить маршрут
+      description: 'Удаление маршрута'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 'Маршрут удален'
+      tags:
+        - Маршруты
+
+  # ==================== АУТЕНТИФИКАЦИЯ ====================
+  /auth/token/login/:
+    post:
+      operationId: Получить токен авторизации
+      description: 'Авторизация по email и паролю'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenCreate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenGetResponse'
+          description: ''
+      tags:
+        - Аутентификация
+
+  /auth/token/logout/:
+    security:
+      - Token: []
+    post:
+      operationId: Удаление токена
+      description: 'Удаляет токен текущего пользователя (выход)'
+      responses:
+        '204':
+          description: 'Выход из аккаунта, удаление токена'
+      tags:
+        - Аутентификация
+
+components:
+  schemas:
+    # ==================== ПОЛЬЗОВАТЕЛИ ====================
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: "Уникальный юзернейм"
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+        is_friend:
+          type: boolean
+          readOnly: true
+
+    UserWithStatistic:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            routes:
+              type: array
+              items:
+                $ref: '#/components/schemas/Route'
+            routes_count:
+              type: integer
+
+    UserStatistic:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Route'
+        routes_count:
+          type: integer
+        average_radius:
+          type: number
+          format: float
+
+    SetAvatar:
+      type: object
+      required:
+        - avatar
+      properties:
+        avatar:
+          type: string
+          description: 'Изображение в формате Base64'
+
+    SetAvatarResponse:
+      type: object
+      properties:
+        avatar:
+          type: string
+          format: uri
+
+    # ==================== ЛОКАЦИИ ====================
+    LocationCreate:
+      type: object
+      required:
+        - latitude
+        - longitude
+        - address
+      properties:
+        latitude:
+          type: number
+          format: float
+          description: "Широта"
+          example: 55.751244
+        longitude:
+          type: number
+          format: float
+          description: "Долгота"
+          example: 37.618423
+        radius:
+          type: number
+          format: float
+          description: "Радиус поиска (метры)"
+          nullable: true
+          example: 100
+        address:
+          type: string
+          maxLength: 250
+          description: "Адрес"
+          example: "Красная площадь, Москва"
+        time:
+          type: string
+          format: date-time
+          description: "Время на точке"
+          nullable: true
+          example: "2024-01-15T10:30:00Z"
+
+    LocationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: "ID локации (используйте в start_id и finish_id)"
+          example: 1
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        radius:
+          type: number
+          format: float
+          nullable: true
+        address:
+          type: string
+        time:
+          type: string
+          format: date-time
+          nullable: true
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        radius:
+          type: number
+          format: float
+          description: "Радиус поиска (метры)"
+          nullable: true
+        address:
+          type: string
+          maxLength: 250
+        time:
+          type: string
+          format: date-time
+          description: "Время на точке"
+
+    # ==================== МАРШРУТЫ ====================
+    Route:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        start:
+          $ref: '#/components/schemas/Location'
+        end:
+          $ref: '#/components/schemas/Location'
+        distance:
+          type: number
+          format: float
+          description: "Расстояние (метры)"
+        time:
+          type: string
+          format: time
+          description: "Время прохождения (HH:MM:SS)"
+          example: "01:30:00"
+        date:
+          type: string
+          format: date
+          description: "Дата прохождения"
+          example: "2024-01-20"
+
+    RouteCreate:
+      type: object
+      required:
+        - start_id
+        - finish_id
+        - distance
+        - time
+        - date
+      properties:
+        start_id:
+          type: integer
+          description: "ID стартовой локации (из ответа /locations/)"
+          example: 1
+        finish_id:
+          type: integer
+          description: "ID конечной локации (из ответа /locations/)"
+          example: 2
+        distance:
+          type: number
+          format: float
+          description: "Расстояние (метры)"
+          example: 2500
+        time:
+          type: string
+          format: time
+          description: "Время прохождения (HH:MM:SS)"
+          example: "00:45:30"
+        date:
+          type: string
+          format: date
+          description: "Дата прохождения"
+          example: "2024-01-20"
+
+    # ==================== АУТЕНТИФИКАЦИЯ ====================
+    TokenCreate:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          writeOnly: true
+          example: "securepass123"
+
+    TokenGetResponse:
+      type: object
+      properties:
+        auth_token:
+          type: string
+          example: "9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"
+
+  securitySchemes:
+    Token:
+      description: 'Авторизация по токену. Используйте заголовок "Authorization: Token TOKENVALUE"'
+      type: http
+      scheme: token
