@@ -8,7 +8,7 @@
 ### 1. Настройка бэкенда
 ```bash
 # Клонирование репозитория
-git clone https://github.com/nalyzhang/findproject.git
+git clone https://github.com/nalyzhang/FindServer.git
 cd findproject
 
 # Создание и активация виртуального окружения

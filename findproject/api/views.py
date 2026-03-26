@@ -1,6 +1,5 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.core.files.base import ContentFile
@@ -18,7 +17,6 @@ from .serializers import (
 class UserViewSet(viewsets.GenericViewSet):
     """ViewSet для работы с пользователями"""
     queryset = User.objects.all()
-    permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         return UserSerializer
@@ -87,50 +85,50 @@ class UserViewSet(viewsets.GenericViewSet):
 
     # ==================== ЭНДПОИНТЫ ДРУЗЕЙ ====================
 
-    @action(detail=True, methods=['post'], url_path='friend')
-    def add_friend(self, request, pk=None):
-        """Добавить пользователя в друзья"""
+    @action(detail=True, methods=['post', 'delete'], url_path='friend')
+    def friend_action(self, request, pk=None):
+        """Добавить или удалить друга"""
         friend_user = get_object_or_404(User, id=pk)
 
-        if request.user == friend_user:
-            return Response(
-                {"error": "Нельзя добавить самого себя в друзья"},
-                status=status.HTTP_400_BAD_REQUEST
+        if request.method == 'POST':
+            # Добавление друга
+            if request.user == friend_user:
+                return Response(
+                    {"error": "Нельзя добавить самого себя в друзья"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            friendship, created = Friend.objects.get_or_create(
+                user=request.user,
+                friend=friend_user
             )
 
-        friendship, created = Friend.objects.get_or_create(
-            user=request.user,
-            friend=friend_user
-        )
+            if created:
+                serializer = UserWithStatisticSerializer(
+                    friend_user, context={'request': request}
+                )
+                return Response(
+                    serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(
+                    {"error": "Пользователь уже в друзьях"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        if created:
-            serializer = UserWithStatisticSerializer(
-                friend_user, context={'request': request}
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(
-                {"error": "Пользователь уже в друзьях"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        elif request.method == 'DELETE':
+            # Удаление друга
+            deleted = Friend.objects.filter(
+                user=request.user,
+                friend=friend_user
+            ).delete()
 
-    @action(detail=True, methods=['delete'], url_path='friend')
-    def remove_friend(self, request, pk=None):
-        """Удалить пользователя из друзей"""
-        friend_user = get_object_or_404(User, id=pk)
-
-        deleted = Friend.objects.filter(
-            user=request.user,
-            friend=friend_user
-        ).delete()
-
-        if deleted[0]:
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response(
-                {"error": "Пользователь не в друзьях"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            if deleted[0]:
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                return Response(
+                    {"error": "Пользователь не в друзьях"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
     @action(detail=False, methods=['get'], url_path='friendslist')
     def friends_list(self, request):
@@ -161,14 +159,11 @@ class UserViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path='me/statistic')
     def my_statistic(self, request):
         """Получить статистику текущего пользователя"""
-        user = request.user
-        routes = user.routes.all().select_related('start', 'finish')
-
-        return Response({
-            'user': UserSerializer(user, context={'request': request}).data,
-            'routes': RouteSerializer(routes, many=True).data,
-            'routes_count': routes.count()
-        })
+        serializer = UserRouteStatisticSerializer(
+            request.user,
+            context={'request': request}
+            )
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='statistics')
     def friends_statistics(self, request):
@@ -197,7 +192,6 @@ class UserViewSet(viewsets.GenericViewSet):
 class RouteViewSet(viewsets.ModelViewSet):
     """ViewSet для работы с маршрутами"""
     queryset = Route.objects.all().select_related('start', 'finish')
-    permission_classes = [IsAuthenticated]
     serializer_class = RouteSerializer
 
     def perform_create(self, serializer):
@@ -235,6 +229,5 @@ class RouteViewSet(viewsets.ModelViewSet):
 class LocationViewSet(viewsets.ModelViewSet):
     """ViewSet для работы с локациями (только создание)"""
     queryset = Location.objects.all()
-    permission_classes = [IsAuthenticated]
     serializer_class = LocationSerializer
     http_method_names = ['post']

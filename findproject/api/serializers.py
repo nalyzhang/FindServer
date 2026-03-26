@@ -84,10 +84,13 @@ class LocationSerializer(serializers.ModelSerializer):
 
 
 class RouteSerializer(serializers.ModelSerializer):
-    """Сериализатор для модели Route"""
+    """
+    Сериализатор для модели Route
+    Данные для времени и дате формируются на клиенте
+    """
 
     start = LocationSerializer(read_only=True)
-    end = LocationSerializer(read_only=True)
+    finish = LocationSerializer(read_only=True)
     start_id = serializers.PrimaryKeyRelatedField(
         queryset=Location.objects.all(),
         source='start',
@@ -105,7 +108,7 @@ class RouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Route
         fields = [
-            'id', 'start', 'end', 'start_id', 'finish_id',
+            'id', 'start', 'finish', 'start_id', 'finish_id',
             'distance', 'time', 'date'
         ]
         read_only_fields = ['id']
