@@ -636,3 +636,27 @@ python manage.py collectstatic
     ]
 }
 ```
+
+---
+
+## Изменение аватара
+- **Метод:** PUT
+- **URL:** `http://127.0.0.1:8000/api/v1/users/me/avatar/`
+
+**JSON-запрос:**
+```json
+{
+    "avatar": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+}
+```
+
+**JSON-ответ:**
+```json
+{
+    "avatar": "/media/users/avatars/2f490d9f-0c6e-48aa-8a96-562024522847.png"
+}
+```
+
+## Удаление аватара
+- **Метод:** DELETE
+- **URL:** `http://127.0.0.1:8000/api/v1/users/me/avatar/`

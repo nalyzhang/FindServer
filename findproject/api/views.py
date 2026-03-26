@@ -52,36 +52,47 @@ class UserViewSet(viewsets.GenericViewSet):
         serializer = UserSerializer(request.user, context={'request': request})
         return Response(serializer.data)
 
-    @action(detail=False, methods=['put'], url_path='me/avatar')
-    def set_avatar(self, request):
-        """Добавление аватара"""
-        serializer = SetAvatarSerializer(data=request.data)
-        if serializer.is_valid():
-            avatar_data = serializer.validated_data['avatar']
+    @action(detail=False, methods=['put', 'delete'], url_path='me/avatar')
+    def manage_avatar(self, request):
+        """
+        Управление аватаром пользователя:
+        PUT - добавление/обновление, DELETE - удаление
+        """
 
-            format, imgstr = avatar_data.split(';base64,')
-            ext = format.split('/')[-1]
+        if request.method == 'PUT':
+            serializer = SetAvatarSerializer(data=request.data)
+            if serializer.is_valid():
+                avatar_data = serializer.validated_data['avatar']
 
-            filename = f"{uuid.uuid4()}.{ext}"
-            data = ContentFile(base64.b64decode(imgstr), name=filename)
-            request.user.avatar.save(filename, data, save=True)
+                if request.user.avatar:
+                    request.user.avatar.delete()
 
-            response_serializer = SetAvatarResponseSerializer({
-                'avatar': request.user.avatar.url
-            })
+                format, imgstr = avatar_data.split(';base64,')
+                ext = format.split('/')[-1]
+
+                filename = f"{uuid.uuid4()}.{ext}"
+                data = ContentFile(base64.b64decode(imgstr), name=filename)
+                request.user.avatar.save(filename, data, save=True)
+
+                response_serializer = SetAvatarResponseSerializer({
+                    'avatar': request.user.avatar.url
+                })
+                return Response(
+                    response_serializer.data, 
+                    status=status.HTTP_200_OK
+                )
+
             return Response(
-                response_serializer.data, status=status.HTTP_200_OK
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['delete'], url_path='me/avatar')
-    def delete_avatar(self, request):
-        """Удаление аватара"""
-        if request.user.avatar:
-            request.user.avatar.delete()
-            request.user.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        elif request.method == 'DELETE':
+            # Удаление аватара
+            if request.user.avatar:
+                request.user.avatar.delete()
+                request.user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ==================== ЭНДПОИНТЫ ДРУЗЕЙ ====================
 
