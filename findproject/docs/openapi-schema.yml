@@ -3,7 +3,7 @@ info:
   title: 'FindThePlace'
   version: '0.0.1'
 servers:
-  - url: http://localhost:8000/api/v1/
+  - url: http://127.0.0.1:8000/api/v1/
     description: dev server
 
 paths:
@@ -96,6 +96,8 @@ paths:
       tags:
         - Пользователи
     delete:
+      security:
+        - Token: []
       operationId: Удаление аватара
       description: 'Удаление аватара текущего пользователя'
       responses:
@@ -535,7 +537,7 @@ components:
           readOnly: true
         start:
           $ref: '#/components/schemas/Location'
-        end:
+        finish:
           $ref: '#/components/schemas/Location'
         distance:
           type: number
