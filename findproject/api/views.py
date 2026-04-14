@@ -10,7 +10,7 @@ from routes.models import User, Route, Friend, Location
 from .serializers import (
     UserSerializer, UserWithStatisticSerializer,
     SetAvatarSerializer, SetAvatarResponseSerializer, RouteSerializer,
-    UserRouteStatisticSerializer, LocationSerializer
+    UserRouteStatisticSerializer, LocationSerializer, UserUpdateSerializer
 )
 
 
@@ -37,20 +37,37 @@ class UserViewSet(viewsets.GenericViewSet):
         """Профиль пользователя"""
         user = get_object_or_404(User, id=pk)
 
-        if 'statistic' in request.query_params:
-            serializer = UserWithStatisticSerializer(
+        serializer = UserWithStatisticSerializer(
                 user, context={'request': request}
             )
-        else:
-            serializer = UserSerializer(user, context={'request': request})
 
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], url_path='me')
+    @action(detail=False, methods=['get', 'put'], url_path='me')
     def me(self, request):
-        """Текущий пользователь"""
-        serializer = UserSerializer(request.user, context={'request': request})
-        return Response(serializer.data)
+        """Текущий пользователь: GET - получение, PUT - обновление"""
+
+        if request.method == 'GET':
+            serializer = UserWithStatisticSerializer(
+                request.user,
+                context={'request': request}
+            )
+            return Response(serializer.data)
+
+        elif request.method == 'PUT':
+            serializer = UserUpdateSerializer(
+                request.user,
+                data=request.data,
+                context={'request': request}
+            )
+
+            if serializer.is_valid():
+                serializer.save()
+                return Response(
+                    serializer.data, status=status.HTTP_200_OK)
+
+            return Response(
+                serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['put', 'delete'], url_path='me/avatar')
     def manage_avatar(self, request):
@@ -78,7 +95,7 @@ class UserViewSet(viewsets.GenericViewSet):
                     'avatar': request.user.avatar.url
                 })
                 return Response(
-                    response_serializer.data, 
+                    response_serializer.data,
                     status=status.HTTP_200_OK
                 )
 
@@ -214,8 +231,17 @@ class RouteViewSet(viewsets.ModelViewSet):
         return super().get_queryset().filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        """Список маршрутов пользователя"""
+        """
+        GET /api/v1/routes/?address=Москва
+        Список маршрутов пользователя с фильтрацией по адресу конечной локации
+        """
         queryset = self.filter_queryset(self.get_queryset())
+
+        # Фильтрация по адресу конечной локации
+        address = request.query_params.get('address', None)
+        if address:
+            queryset = queryset.filter(finish__address__icontains=address)
+
         serializer = self.get_serializer(queryset, many=True)
         return Response({
             'count': queryset.count(),
@@ -238,7 +264,7 @@ class RouteViewSet(viewsets.ModelViewSet):
 
 
 class LocationViewSet(viewsets.ModelViewSet):
-    """ViewSet для работы с локациями (только создание)"""
+    """ViewSet для работы с локациями"""
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     http_method_names = ['post']

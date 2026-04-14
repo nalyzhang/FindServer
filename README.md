@@ -148,14 +148,6 @@ python manage.py collectstatic
 - **Метод:** POST
 - **URL:** `http://127.0.0.1:8000/api/v1/auth/token/logout/`
 
-**JSON-запрос:**
-```json
-{
-    "email": "abc@example.com",
-    "password": "pass_0123"
-}
-```
-
 ---
 
 ## Смена пароля

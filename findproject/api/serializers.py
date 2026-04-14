@@ -68,6 +68,47 @@ class SetAvatarSerializer(serializers.Serializer):
         return value
 
 
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для обновления профиля"""
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name']
+
+    def validate_email(self, value):
+        """Проверка уникальности email"""
+        request = self.context.get('request')
+        if request and request.user.email != value:
+            if User.objects.filter(email=value).exists():
+                raise serializers.ValidationError(
+                    "Пользователь с таким email уже существует"
+                )
+        return value
+
+    def validate_username(self, value):
+        """Проверка уникальности username"""
+        request = self.context.get('request')
+        if request and request.user.username != value:
+            if User.objects.filter(username=value).exists():
+                raise serializers.ValidationError(
+                    "Пользователь с таким именем уже существует"
+                )
+        return value
+
+    def update(self, instance, validated_data):
+        """Обновление полей пользователя"""
+        instance.username = validated_data.get(
+            'username', instance.username)
+        instance.email = validated_data.get(
+            'email', instance.email)
+        instance.first_name = validated_data.get(
+            'first_name', instance.first_name)
+        instance.last_name = validated_data.get(
+            'last_name', instance.last_name)
+        instance.save()
+        return instance
+
+
 class SetAvatarResponseSerializer(serializers.Serializer):
     """Сериализатор ответа при установке аватара"""
 
@@ -122,11 +163,6 @@ class RouteSerializer(serializers.ModelSerializer):
             if Route.objects.filter(start=start, finish=finish).exists():
                 raise serializers.ValidationError(
                     "Такой маршрут уже существует"
-                )
-
-            if start == finish:
-                raise serializers.ValidationError(
-                    "Начальная и конечная точки не могут совпадать"
                 )
 
         return attrs
