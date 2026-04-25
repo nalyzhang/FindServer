@@ -94,6 +94,14 @@ class Route(models.Model):
         verbose_name='Конечная позиция',
         related_name='routes_finish'
     )
+    stop = models.ForeignKey(
+        Location,
+        on_delete=models.PROTECT,
+        verbose_name='Позиция остановки',
+        related_name='routes_stop',
+        null=True,
+        blank=True
+    )
     distance = models.FloatField(
         'Расстояние'
     )

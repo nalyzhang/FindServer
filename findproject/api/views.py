@@ -1,3 +1,5 @@
+from functools import wraps
+from datetime import datetime
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -175,40 +177,98 @@ class UserViewSet(viewsets.GenericViewSet):
 
     # ==================== ЭНДПОИНТЫ СТАТИСТИКИ ====================
 
+    def with_date_filter(func):
+        """Декоратор для добавления фильтрации по датам"""
+        @wraps(func)
+        def wrapper(self, request, *args, **kwargs):
+            # Получаем и валидируем даты
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
+
+            if date_from:
+                try:
+                    datetime.strptime(date_from, '%Y-%m-%d')
+                except ValueError:
+                    return Response(
+                        {"error": "Неверный формат date_from"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            if date_to:
+                try:
+                    datetime.strptime(date_to, '%Y-%m-%d')
+                except ValueError:
+                    return Response(
+                        {"error": "Неверный формат date_to"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            if date_from and date_to and date_from > date_to:
+                return Response(
+                    {"error": "date_from не может быть больше date_to"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Добавляем даты в kwargs для передачи в метод
+            kwargs['date_from'] = date_from
+            kwargs['date_to'] = date_to
+
+            return func(self, request, *args, **kwargs)
+        return wrapper
+
     @action(detail=True, methods=['get'], url_path='statistic')
-    def user_statistic(self, request, pk=None):
+    @with_date_filter
+    def user_statistic(self, request, pk=None, date_from=None, date_to=None):
         """Получить статистику пользователя (его маршруты)"""
         user = get_object_or_404(User, id=pk)
         serializer = UserRouteStatisticSerializer(
-            user, context={'request': request}
+            user, context={'request': request},
+            date_from=date_from,
+            date_to=date_to
         )
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='me/statistic')
-    def my_statistic(self, request):
+    @with_date_filter
+    def my_statistic(self, request, date_from=None, date_to=None):
         """Получить статистику текущего пользователя"""
         serializer = UserRouteStatisticSerializer(
             request.user,
-            context={'request': request}
+            context={'request': request},
+            date_from=date_from,
+            date_to=date_to
             )
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='statistics')
-    def friends_statistics(self, request):
+    @with_date_filter
+    def friends_statistics(self, request, date_from=None, date_to=None):
         """Получить статистики всех друзей"""
         friends = User.objects.filter(
             friend_of__user=request.user
         ).prefetch_related('routes__start', 'routes__finish')
 
+        all_users = [request.user] + list(friends)
+
         results = []
-        for friend in friends:
+        for friend in all_users:
             routes = friend.routes.all()
+
+            # Применяем фильтрацию по датам если они указаны
+            if date_from:
+                routes = routes.filter(date__gte=date_from)
+            if date_to:
+                routes = routes.filter(date__lte=date_to)
+
             results.append({
                 'user': UserSerializer(
                     friend, context={'request': request}
                 ).data,
                 'routes': RouteSerializer(routes, many=True).data,
-                'routes_count': routes.count()
+                'routes_count': routes.count(),
+                'completed_routes_count': routes.filter(
+                    stop__isnull=True
+                    ).count(),
             })
 
         return Response({
