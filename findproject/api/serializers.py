@@ -151,8 +151,8 @@ class RouteSerializer(serializers.ModelSerializer):
         write_only=True
     )
     distance = serializers.FloatField()
-    time = serializers.TimeField()
-    date = serializers.DateField()
+    time = serializers.SerializerMethodField(read_only=True)
+    date = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Route
@@ -160,7 +160,15 @@ class RouteSerializer(serializers.ModelSerializer):
             'id', 'start', 'finish', 'start_id', 'finish_id', 'stop_id',
             'stop', 'distance', 'time', 'date'
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'time', 'date']
+
+    def get_time(self, obj):
+        """Время в пути из свойства модели"""
+        return obj.time
+
+    def get_date(self, obj):
+        """Дата маршрута из свойства модели"""
+        return obj.date
 
     def validate(self, attrs):
         """Проверка уникальности маршрута"""
@@ -176,7 +184,10 @@ class RouteSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """Создание маршрута"""
+        """Создание маршрута с привязкой к пользователю"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
         return Route.objects.create(**validated_data)
 
 
@@ -200,9 +211,9 @@ class UserRouteStatisticSerializer(serializers.Serializer):
         routes = obj.routes.all()
 
         if self.date_from:
-            routes = routes.filter(date__gte=self.date_from)
+            routes = routes.filter(start__time__date__gte=self.date_from)
         if self.date_to:
-            routes = routes.filter(date__lte=self.date_to)
+            routes = routes.filter(start__time__date__lte=self.date_to)
 
         return routes
 
@@ -251,13 +262,13 @@ class UserRouteStatisticSerializer(serializers.Serializer):
             routes = routes.filter(stop__isnull=True)
 
         # Группируем маршруты по датам и считаем количество
-        daily_counts = routes.values('date').annotate(
+        daily_counts = routes.values('start__time__date').annotate(
             count=Count('id')
-        ).order_by('date')
+        ).order_by('start__time__date')
 
         # Преобразуем в словарь для быстрого поиска
         counts_dict = {
-            item['date'].isoformat(): item['count']
+            item['start__time__date'].isoformat(): item['count']
             for item in daily_counts
         }
 

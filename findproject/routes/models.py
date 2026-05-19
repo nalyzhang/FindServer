@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -105,51 +106,28 @@ class Route(models.Model):
     distance = models.FloatField(
         'Расстояние'
     )
-    time = models.TimeField(
-        'Время в пути'
-    )
-    date = models.DateField(
-        'Дата маршрута'
-    )
+
+    @property
+    def date(self):
+        return self.start.time.date() if self.start else None
+
+    @property
+    def time(self):
+        if self.start and self.finish:
+            delta = self.finish.time - self.start.time
+            # Вернуть time объект или timedelta, зависит от вашей логики
+            return (datetime.min + delta).time()  # как time
+            # или оставить timedelta, сменив тип поля в бизнес-логике
+        return None
 
     class Meta:
         verbose_name = 'Маршрут'
         verbose_name_plural = 'Маршруты'
-        ordering = ['date']
+        ordering = ['start__time']
         unique_together = ['start', 'finish']
 
     def __str__(self):
-        return f'{self.start} - {self.finish} / {self.date}'
-
-
-class Statistic(models.Model):
-    """
-    Статистика
-    Абстрактный класс для связи маршрутов и пользователей
-    """
-    route = models.ForeignKey(
-        Route,
-        on_delete=models.CASCADE,
-        verbose_name='Маршруты',
-        null=True,
-        blank=True
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        verbose_name='Пользователь'
-    )
-
-    class Meta:
-        abstract = True
-        verbose_name = 'Статистика'
-        verbose_name_plural = 'Статистики'
-        unique_together = ['user', 'route']
-        ordering = ['route__date']
-
-    def __str__(self):
-        return (f'{self.user.username}: {self.route.start} - '
-                f'{self.route.finish} / {self.route.date}')
+        return f'{self.start} - {self.finish}'
 
 
 class Friend(models.Model):
@@ -157,7 +135,7 @@ class Friend(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='friens',
+        related_name='friends',
         verbose_name='Пользователь'
     )
     friend = models.ForeignKey(
@@ -174,11 +152,3 @@ class Friend(models.Model):
             models.UniqueConstraint(fields=['user', 'friend'],
                                     name='unique_friend')
         ]
-
-
-class FriendsList(Statistic):
-    """Список друзей"""
-
-    class Meta(Statistic.Meta):
-        verbose_name = 'Список друзей'
-        verbose_name_plural = 'Списки друзей'

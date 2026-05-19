@@ -256,9 +256,9 @@ class UserViewSet(viewsets.GenericViewSet):
 
             # Применяем фильтрацию по датам если они указаны
             if date_from:
-                routes = routes.filter(date__gte=date_from)
+                routes = routes.filter(start__time__date__gte=date_from)
             if date_to:
-                routes = routes.filter(date__lte=date_to)
+                routes = routes.filter(start__time__date__lte=date_to)
 
             results.append({
                 'user': UserSerializer(
